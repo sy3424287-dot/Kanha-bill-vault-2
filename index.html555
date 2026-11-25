@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kanha BillVault</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: rgba(56, 189, 248, 0.25); }
+    body {
+      margin: 0;
+      padding: 14px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #070b14;
+      color: #eef3ff;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .box {
+      background: #0e1525;
+      border: 1px solid #22304d;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    h1 { margin: 0 0 6px 0; font-size: 20px; }
+    .muted { color: #94a3b8; font-size: 13px; margin: 0; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+    button, .file-btn {
+      display: inline-block;
+      background: #1e293b;
+      color: #ffffff;
+      border: 1px solid #38bdf8;
+      border-radius: 9px;
+      padding: 11px 15px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button.primary { background: #38bdf8; color: #04101f; }
+    button.green { background: #22c55e; color: #052e16; border-color: #22c55e; }
+    button.red { background: #ef4444; color: #ffffff; border-color: #ef4444; }
+    input {
+      width: 100%;
+      background: #070b14;
+      color: #ffffff;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      padding: 10px;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    .table-wrap { overflow-x: auto; margin-top: 10px; border: 1px solid #22304d; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; min-width: 820px; font-size: 13px; }
+    th, td { border-bottom: 1px solid #22304d; padding: 8px; text-align: left; }
+    th { background: #141d33; color: #cbd5e1; }
+    td input { margin-top: 0; padding: 7px; font-size: 13px; min-width: 70px; }
+    .hidden { display: none; }
+    #msg { margin-bottom: 12px; font-size: 14px; font-weight: 600; color: #86efac; }
+    .bill-card { background: #0e1525; border: 1px solid #22304d; border-radius: 12px; padding: 12px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="box">
+      <h1>Kanha BillVault</h1>
+      <p class="muted">Medical Purchase Bill Vault, AI Photo Scanner &amp; Item Search</p>
+      <div class="row">
+        <button type="button" id="btnSearchTab" class="primary">Search &amp; Bills</button>
+        <button type="button" id="btnAddTab">+ Add / Scan Bill</button>
+      </div>
+      <div class="row" style="margin-top:12px; font-size:13px; color:#cbd5e1;">
+        <span>Bills: <strong id="cBills">0</strong></span>
+        <span>| Items: <strong id="cItems">0</strong></span>
+        <span>| Value: <strong id="cVal">₹0.00</strong></span>
+      </div>
+    </div>
+
+    <div id="msg"></div>
+
+    <!-- SEARCH VIEW -->
+    <div id="viewSearch" class="box">
+      <label>Search Item / Party / Batch / HSN / Invoice</label>
+      <input type="text" id="qInput" placeholder="Type medicine name or supplier..." />
+      <div id="billList"></div>
+    </div>
+
+    <!-- ADD / SCAN VIEW -->
+    <div id="viewAdd" class="box hidden">
+      <div class="row" style="justify-content:space-between; margin-top:0;">
+        <strong>New Bill &amp; AI Photo Scan</strong>
+        <label class="file-btn green">
+          Scan Bill Photo (AI)
+          <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" />
+        </label>
+      </div>
+
+      <div class="row">
+        <input type="password" id="keyInput" placeholder="Gemini API Key paste karo (AIzaSy...)" style="flex:1; min-width:200px;" />
+        <button type="button" id="btnSaveKey" class="primary">Save Key</button>
+      </div>
+
+      <div class="grid" style="margin-top:10px;">
+        <div>
+          <label>Party / Supplier</label>
+          <input type="text" id="partyInput" placeholder="e.g. Patwa" />
+        </div>
+        <div>
+          <label>Invoice No.</label>
+          <input type="text" id="invInput" placeholder="Bill number" />
+        </div>
+        <div>
+          <label>Bill Date</label>
+          <input type="date" id="dateInput" />
+        </div>
+        <div>
+          <label>Grand Total (₹)</label>
+          <input type="number" step="0.01" id="totalInput" placeholder="Auto or manual" />
+        </div>
+      </div>
+
+      <div class="row">
+        <button type="button" id="btnAddRow">+ Add Row</button>
+        <button type="button" id="btnSaveBill" class="green">Save Bill</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Pack</th>
+              <th>HSN</th>
+              <th>Batch</th>
+              <th>Expiry</th>
+              <th>Qty</th>
+              <th>Free</th>
+              <th>MRP</th>
+              <th>Rate</th>
+              <th>GST%</th>
+              <th>Amount</th>
+              <th>Del</th>
+            </tr>
+          </thead>
+          <tbody id="rowsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BILLS_KEY = 'kb_bills_clean_v1';
+    const API_KEY = 'kb_gemini_key_clean_v1';
+
+    function say(text, err = false) {
+      const el = document.getElementById('msg');
+      el.textContent = text || '';
+      el.style.color = err ? '#fca5a5' : '#86efac';
+    }
+
+    function openView(which) {
+      const isAdd = which === 'add';
+      document.getElementById('viewSearch').classList.toggle('hidden', isAdd);
+      document.getElementById('viewAdd').classList.toggle('hidden', !isAdd);
+      document.getElementById('btnSearchTab').className = isAdd ? '' : 'primary';
+      document.getElementById('btnAddTab').className = isAdd ? 'primary' : '';
+      if (isAdd) {
+        if (!document.getElementById('dateInput').value) {
+          document.getElementById('dateInput').value = new Date().toISOString().slice(0, 10);
+        }
+        if (document.getElementById('rowsBody').children.length === 0) {
+          addRow();
+        }
+        const savedKey = localStorage.getItem(API_KEY) || '';
+        if (savedKey && !document.getElementById('keyInput').value) {
+          document.getElementById('keyInput').value = savedKey;
+        }
+      }
+      say(isAdd ? 'Add / Scan screen khul gaya.' : 'Search screen khul gaya.');
+    }
+
+    function getBills() {
+      try {
+        return JSON.parse(localStorage.getItem(BILLS_KEY) || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function setBills(arr) {
+      localStorage.setItem(BILLS_KEY, JSON.stringify(arr));
+      renderAll();
+    }
+
+    function recalc() {
+      let sum = 0;
+      document.querySelectorAll('#rowsBody tr').forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        const qty = parseFloat(inputs[5].value) || 0;
+        const rate = parseFloat(inputs[8].value) || 0;
+        const gst = parseFloat(inputs[9].value) || 0;
+        if (qty > 0 && rate > 0) {
+          const amt = qty * rate + (qty * rate * gst / 100);
+          inputs[10].value = amt.toFixed(2);
+        }
+        sum += parseFloat(inputs[10].value) || 0;
+      });
+      if (sum > 0) document.getElementById('totalInput').value = sum.toFixed(2);
+    }
+
+    function addRow(item = {}) {
+      const tbody = document.getElementById('rowsBody');
+      const tr = document.createElement('tr');
+      const fields = [
+        ['text', item.name || '', 'Medicine'],
+        ['text', item.pack || '', '10T'],
+        ['text', item.hsn || '', '3004'],
+        ['text', item.batch || '', 'Batch'],
+        ['text', item.expiry || '', 'MM/YY'],
+        ['number', item.qty ?? '', '0'],
+        ['number', item.free ?? 0, '0'],
+        ['number', item.mrp ?? '', '0'],
+        ['number', item.rate ?? '', '0'],
+        ['number', item.gst ?? 0, '0'],
+        ['number', item.amount ?? '', '0']
+      ];
+      fields.forEach(([type, val, ph], idx) => {
+        const td = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.type = type;
+        inp.step = 'any';
+        inp.value = val;
+        inp.placeholder = ph;
+        if ([5, 8, 9, 10].includes(idx)) inp.addEventListener('input', recalc);
+        td.appendChild(inp);
+        tr.appendChild(td);
+      });
+      const delTd = document.createElement('td');
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'red';
+      delBtn.textContent = 'X';
+      delBtn.addEventListener('click', () => {
+        tr.remove();
+        recalc();
+      });
+      delTd.appendChild(delBtn);
+      tr.appendChild(delTd);
+      tbody.appendChild(tr);
+    }
+
+    function saveBill() {
+      const party = document.getElementById('partyInput').value.trim();
+      const billNo = document.getElementById('invInput').value.trim();
+      const date = document.getElementById('dateInput').value || new Date().toISOString().slice(0, 10);
+      const items = [];
+
+      document.querySelectorAll('#rowsBody tr').forEach(tr => {
+        const v = Array.from(tr.querySelectorAll('input')).map(i => i.value.trim());
+        const item = {
+          name: v[0] || '',
+          pack: v[1] || '',
+          hsn: v[2] || '',
+          batch: v[3] || '',
+          expiry: v[4] || '',
+          qty: parseFloat(v[5]) || 0,
+          free: parseFloat(v[6]) || 0,
+          mrp: parseFloat(v[7]) || 0,
+          rate: parseFloat(v[8]) || 0,
+          gst: parseFloat(v[9]) || 0,
+          amount: parseFloat(v[10]) || 0
+        };
+        if (item.name || item.batch || item.amount > 0) items.push(item);
+      });
+
+      if (!party && items.length === 0) {
+        say('Party naam ya kam se kam ek item bharo.', true);
+        return;
+      }
+
+      const calcSum = items.reduce((a, b) => a + b.amount, 0);
+      const total = parseFloat(document.getElementById('totalInput').value) || calcSum;
+      const bills = getBills();
+      bills.unshift({ id: 'b_' + Date.now(), party: party || 'Supplier', billNo: billNo || '-', date, total, items });
+      setBills(bills);
+
+      document.getElementById('partyInput').value = '';
+      document.getElementById('invInput').value = '';
+      document.getElementById('totalInput').value = '';
+      document.getElementById('rowsBody').innerHTML = '';
+      addRow();
+      openView('search');
+      say('Bill save ho gaya!');
+    }
+
+    function renderAll() {
+      const bills = getBills();
+      let itemsCount = 0;
+      let valSum = 0;
+      bills.forEach(b => {
+        const arr = b.items || [];
+        itemsCount += arr.length;
+        valSum += parseFloat(b.total) || arr.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+      });
+      document.getElementById('cBills').textContent = bills.length;
+      document.getElementById('cItems').textContent = itemsCount;
+      document.getElementById('cVal').textContent = '₹' + valSum.toFixed(2);
+
+      const q = (document.getElementById('qInput').value || '').trim().toLowerCase();
+      const listEl = document.getElementById('billList');
+      const filtered = !q ? bills : bills.filter(b => {
+        const headHit = [b.party, b.billNo, b.date].some(x => String(x || '').toLowerCase().includes(q));
+        const itemHit = (b.items || []).some(it => [it.name, it.pack, it.hsn, it.batch, it.expiry].some(x => String(x || '').toLowerCase().includes(q)));
+        return headHit || itemHit;
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<p class="muted" style="margin-top:10px;">Koi bill nahi mila. "+ Add / Scan Bill" par tap karke bill add ya scan karo.</p>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      filtered.forEach(b => {
+        const card = document.createElement('div');
+        card.className = 'bill-card';
+        const rowsHtml = (b.items || []).map(it => `
+          <tr>
+            <td><strong>${esc(it.name)}</strong></td>
+            <td>${esc(it.pack)}</td>
+            <td>${esc(it.hsn)}</td>
+            <td>${esc(it.batch)}</td>
+            <td>${esc(it.expiry)}</td>
+            <td>${it.qty}</td>
+            <td>${it.free}</td>
+            <td>₹${Number(it.mrp || 0).toFixed(2)}</td>
+            <td>₹${Number(it.rate || 0).toFixed(2)}</td>
+            <td>${it.gst || 0}%</td>
+            <td><strong>₹${Number(it.amount || 0).toFixed(2)}</strong></td>
+          </tr>
+        `).join('');
+
+        card.innerHTML = `
+          <div class="row" style="justify-content:space-between; margin-top:0;">
+            <div><strong>${esc(b.party)}</strong> <span class="muted">(${esc(b.date)} | Inv: ${esc(b.billNo)})</span></div>
+            <div><strong>₹${Number(b.total || 0).toFixed(2)}</strong></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Item</th><th>Pack</th><th>HSN</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Free</th><th>MRP</th><th>Rate</th><th>GST%</th><th>Amount</th></tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'red';
+        delBtn.style.marginTop = '8px';
+        delBtn.textContent = 'Delete Bill';
+        delBtn.addEventListener('click', () => {
+          setBills(getBills().filter(x => x.id !== b.id));
+          say('Bill delete ho gaya.');
+        });
+        card.appendChild(delBtn);
+        listEl.appendChild(card);
+      });
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    async function scanPhoto(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      ev.target.value = '';
+      if (!file) return;
+
+      const typed = (document.getElementById('keyInput').value || '').trim();
+      const apiKey = typed || (localStorage.getItem(API_KEY) || '').trim();
+      if (!apiKey) {
+        say('Pehle Gemini API Key paste karke Save Key dabao.', true);
+        return;
+      }
+      if (typed) localStorage.setItem(API_KEY, typed);
+
+      say('Bill photo scan ho rahi hai...');
+      try {
+        const base64 = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result || '').split(',')[1] || '');
+          r.onerror = reject;
+          r.readAsDataURL(file);
+        });
+
+        const prompt = 'Extract medical bill JSON: {"party":"","billNo":"","date":"YYYY-MM-DD","total":0,"items":[{"name":"","pack":"","hsn":"","batch":"","expiry":"","qty":0,"free":0,"mrp":0,"rate":0,"gst":0,"amount":0}]}';
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type || 'image/jpeg', data: base64 } }] }],
+            generationConfig: { responseMimeType: 'application/json' }
+          })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const data = JSON.parse(json?.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+
+        if (data.party) document.getElementById('partyInput').value = data.party;
+        if (data.billNo) document.getElementById('invInput').value = data.billNo;
+        if (data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) document.getElementById('dateInput').value = data.date;
+        if (data.total) document.getElementById('totalInput').value = data.total;
+
+        const tbody = document.getElementById('rowsBody');
+        tbody.innerHTML = '';
+        const list = Array.isArray(data.items) && data.items.length ? data.items : [{}];
+        list.forEach(it => addRow(it));
+        recalc();
+        say(`Scan complete! ${list.length} items bhare gaye.`);
+      } catch (err) {
+        say('Scan error: ' + err.message, true);
+      }
+    }
+
+    document.getElementById('btnSearchTab').addEventListener('click', () => openView('search'));
+    document.getElementById('btnAddTab').addEventListener('click', () => openView('add'));
+    document.getElementById('btnAddRow').addEventListener('click', () => addRow());
+    document.getElementById('btnSaveBill').addEventListener('click', saveBill);
+    document.getElementById('qInput').addEventListener('input', renderAll);
+    document.getElementById('photoInput').addEventListener('change', scanPhoto);
+    document.getElementById('btnSaveKey').addEventListener('click', () => {
+      const k = (document.getElementById('keyInput').value || '').trim();
+      if (!k) return say('Pehle API key paste karo.', true);
+      localStorage.setItem(API_KEY, k);
+      say('API key save ho gayi!');
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
